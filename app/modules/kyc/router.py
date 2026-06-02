@@ -15,7 +15,7 @@ from app.modules.kyc.schemas import (
     KYCSubmissionResponse,
     KYCDocumentResponse,
 )
-from packages.auth.dependencies import get_current_user_id, RoleChecker
+from packages.auth.dependencies import RoleChecker
 from packages.core.exceptions import (
     ValidationException,
     NotFoundException,
@@ -25,6 +25,7 @@ from packages.core.response import api_response
 router = APIRouter(prefix="/kyc", tags=["KYC"])
 
 # ── Role-based dependencies ───────────────────────────────────────────────────
+require_investor = RoleChecker(allowed_roles=[UserRole.INVESTOR])
 require_admin = RoleChecker(allowed_roles=[UserRole.ADMIN])
 
 
@@ -42,7 +43,7 @@ def get_kyc_service(db: Annotated[AsyncSession, Depends(get_db)]) -> KYCService:
 @router.post("/submit", summary="Submit KYC data")
 async def submit_kyc(
     body: KYCSubmitRequest,
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     kyc_service: Annotated[KYCService, Depends(get_kyc_service)],
 ):
     """Submit personal information for KYC verification."""
@@ -70,7 +71,7 @@ async def submit_kyc(
 
 @router.post("/documents/upload", summary="Upload KYC document")
 async def upload_document(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     kyc_service: Annotated[KYCService, Depends(get_kyc_service)],
     submission_id: str = Form(...),
     document_type: str = Form(...),
@@ -96,7 +97,7 @@ async def upload_document(
 
 @router.get("/status", summary="Get KYC status")
 async def get_kyc_status(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     kyc_service: Annotated[KYCService, Depends(get_kyc_service)],
 ):
     """Get the current KYC submission status for the authenticated investor."""

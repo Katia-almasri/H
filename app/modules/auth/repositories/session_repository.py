@@ -19,7 +19,7 @@ class SessionRepository:
         result = await self.db.execute(
             select(UserSession).where(UserSession.id == session_id)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_by_token_hash(self, token_hash: str) -> Optional[UserSession]:
         """Get session by refresh token hash."""
@@ -28,7 +28,7 @@ class SessionRepository:
             .where(UserSession.refresh_token_hash == token_hash)
             .where(UserSession.is_active == True)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_user_sessions(self, user_id: str) -> List[UserSession]:
         """Get all active sessions for a user."""

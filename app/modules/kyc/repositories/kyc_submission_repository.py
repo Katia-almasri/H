@@ -15,7 +15,7 @@ class KYCSubmissionRepository:
         result = await self.db.execute(
             select(KYCSubmission).where(KYCSubmission.id == submission_id)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_by_user_id(self, user_id: str) -> Optional[KYCSubmission]:
         result = await self.db.execute(
@@ -23,7 +23,7 @@ class KYCSubmissionRepository:
             .where(KYCSubmission.user_id == user_id)
             .order_by(KYCSubmission.created_at.desc())
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def create(self, submission: KYCSubmission) -> KYCSubmission:
         self.db.add(submission)

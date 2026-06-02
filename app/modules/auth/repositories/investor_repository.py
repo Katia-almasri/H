@@ -15,7 +15,7 @@ class InvestorRepository:
         result = await self.db.execute(
             select(Investor).where(Investor.user_id == user_id)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def create(self, investor: Investor) -> Investor:
         self.db.add(investor)

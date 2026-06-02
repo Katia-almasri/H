@@ -99,7 +99,7 @@ class DeviceService:
             .where(UserSession.device_fingerprint == device_fingerprint)
             .limit(1)
         )
-        session = result.scalar_one_or_none()
+        session = result.scalars().first()
         
         if session:
             # Cache the result for 30 days

@@ -32,10 +32,16 @@ from packages.core.exceptions import (
     ValidationException,
 )
 from packages.core.response import api_response
+from packages.auth.dependencies import RoleChecker
+from app.modules.auth.enums import UserRole
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 router = APIRouter(tags=["Authentication"])
 security = HTTPBearer(auto_error=True)
+
+# ── Role-based dependencies ───────────────────────────────────────────────────
+require_investor = RoleChecker(allowed_roles=[UserRole.INVESTOR])
+require_admin = RoleChecker(allowed_roles=[UserRole.ADMIN])
 
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
@@ -258,7 +264,7 @@ async def get_current_user(
 
 @router.post("/investors/2fa/setup", summary="Initiate 2FA setup")
 async def setup_2fa(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
     token_service: Annotated[TokenService, Depends(get_token_service)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
@@ -272,7 +278,7 @@ async def setup_2fa(
 
 @router.post("/investors/2fa/acknowledge-codes", summary="Acknowledge recovery codes")
 async def acknowledge_codes(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
 ):
     success = await two_fa_service.acknowledge_recovery_codes(user_id)
@@ -284,7 +290,7 @@ async def acknowledge_codes(
 @router.post("/investors/2fa/confirm", summary="Confirm 2FA with TOTP code")
 async def confirm_2fa(
     totp_code: str,
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
 ):
     success = await two_fa_service.confirm_setup(user_id, totp_code)
@@ -296,7 +302,7 @@ async def confirm_2fa(
 @router.post("/investors/2fa/verify", summary="Verify TOTP for protected action")
 async def verify_2fa(
     totp_code: str,
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
 ):
     valid = await two_fa_service.verify_totp(user_id, totp_code)
@@ -309,7 +315,7 @@ async def verify_2fa(
 async def recover_2fa(
     recovery_code: str,
     request: Request,
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
 ):
     success = await two_fa_service.use_recovery_code(
@@ -325,7 +331,7 @@ async def recover_2fa(
 
 @router.get("/investors/2fa/status", summary="Get 2FA status")
 async def get_2fa_status(
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(require_investor)],
     two_fa_service: Annotated[InvestorTwoFAService, Depends(get_two_fa_service)],
 ):
     data = await two_fa_service.get_status(user_id)

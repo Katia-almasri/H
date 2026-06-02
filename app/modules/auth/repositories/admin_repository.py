@@ -15,13 +15,13 @@ class AdminRepository:
         result = await self.db.execute(
             select(Admin).where(Admin.user_id == user_id)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_by_id(self, admin_id: str) -> Optional[Admin]:
         result = await self.db.execute(
             select(Admin).where(Admin.id == admin_id)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def create(self, admin: Admin) -> Admin:
         self.db.add(admin)

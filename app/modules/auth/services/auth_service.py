@@ -1,6 +1,7 @@
 """Main authentication service orchestrating all auth operations."""
 
 import uuid
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
@@ -17,6 +18,8 @@ from app.modules.auth.services.lockout_service import LockoutService
 from app.modules.auth.services.rate_limit_service import RateLimitService
 from app.modules.auth.services.device_service import DeviceService
 from app.modules.auth.services.notification_service import NotificationService
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -392,6 +395,13 @@ class AuthService:
             # Generate reset token
             reset_token = self.notification_service.generate_reset_token()
             
+            # Log the reset link for dev/testing
+            logger.info(
+                "Password reset link: https://harvest.ae/reset-password?token=%s (user: %s)",
+                reset_token,
+                user.email,
+            )
+
             # Store token in Redis (30 minutes TTL)
             await self.notification_service.store_reset_token(
                 user.id,
@@ -407,6 +417,7 @@ class AuthService:
             )
         
         # Always return success (prevent email enumeration)
+        
         return
 
     async def reset_password_with_token(

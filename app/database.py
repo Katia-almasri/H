@@ -4,7 +4,7 @@ from app.config import settings
 
 engine = create_async_engine(
     settings.database_url.replace('asyncpg', 'psycopg'),  # Use psycopg driver
-    echo=settings.debug,
+    echo=False,
     future=True
 )
 
