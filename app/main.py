@@ -79,9 +79,11 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 from app.modules.auth.router import router as auth_router  # noqa: E402
 from app.modules.kyc.router import router as kyc_router  # noqa: E402
+from app.modules.suitability_questionnaire.router import router as suitability_router  # noqa: E402
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(kyc_router, prefix="/api/v1")
+app.include_router(suitability_router, prefix="/api/v1")
 
 
 # ── Health endpoints ──────────────────────────────────────────────────────────

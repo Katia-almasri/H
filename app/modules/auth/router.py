@@ -22,6 +22,7 @@ from app.modules.auth.schemas import (
     TokenResponse,
     AdminRegisterRequest,
     AdminResponse,
+    UpdateInvestorProfileRequest,
 )
 from packages.core.exceptions import (
     AuthenticationException,
@@ -116,6 +117,37 @@ async def register_investor(
         message="Registration successful. Verify your email with the OTP sent to your inbox.",
         data={"user": UserResponse.model_validate(user).model_dump()},
         code=HTTP_201_CREATED,
+    )
+
+
+@router.put("/investors/me", summary="Update investor profile")
+async def update_investor_profile(
+    body: UpdateInvestorProfileRequest,
+    user_id: Annotated[str, Depends(require_investor)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+):
+    """Update the authenticated investor's profile.
+
+    Updates user-level fields (username, full_name, phone_number).
+    Email changes are not supported here — they require a separate
+    re-verification flow.
+    """
+    try:
+        user = await auth_service.update_investor_profile(
+            user_id=user_id,
+            username=body.username,
+            full_name=body.full_name,
+            phone_number=body.phone_number,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise NotFoundException(msg)
+        raise ConflictException(msg)
+
+    return api_response(
+        message="Profile updated successfully.",
+        data={"user": UserResponse.model_validate(user).model_dump()},
     )
 
 

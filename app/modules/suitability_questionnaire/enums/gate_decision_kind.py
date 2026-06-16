@@ -1,0 +1,11 @@
+"""Suitability gate decision kind enumeration."""
+
+from enum import StrEnum
+
+
+class GateDecisionKind(StrEnum):
+    ALLOW = "ALLOW"
+    SUITABILITY_REQUIRED = "SUITABILITY_REQUIRED"
+    SUITABILITY_BLOCKED = "SUITABILITY_BLOCKED"
+    SUITABILITY_ACK_REQUIRED = "SUITABILITY_ACK_REQUIRED"
+    INVALID_SUBJECT = "INVALID_SUBJECT"

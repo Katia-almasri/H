@@ -20,9 +20,13 @@ from app.config import settings
 from app.modules.auth.models.user import User  # noqa: F401
 from app.modules.auth.models.session import UserSession  # noqa: F401
 from app.modules.auth.models.investor import Investor  # noqa: F401
+from app.modules.auth.models.admin import Admin  # noqa: F401
 from app.modules.kyc.models.kyc_submission import KYCSubmission  # noqa: F401
 from app.modules.kyc.models.kyc_document import KYCDocument  # noqa: F401
 from app.modules.kyc.models.kyc_status_log import KYCStatusLog  # noqa: F401
+from app.modules.suitability_questionnaire.models.investor_suitability import InvestorSuitability  # noqa: F401
+from app.modules.suitability_questionnaire.models.suitability_acknowledgement import SuitabilityAcknowledgement  # noqa: F401
+from app.modules.suitability_questionnaire.models.suitability_retake_request import SuitabilityRetakeRequest  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

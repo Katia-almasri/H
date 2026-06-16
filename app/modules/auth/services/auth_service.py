@@ -538,3 +538,40 @@ class AuthService:
             otp,
             valid_minutes=10
         )
+
+    async def update_investor_profile(
+        self,
+        user_id: str,
+        username: Optional[str] = None,
+        full_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+    ) -> User:
+        """
+        Update an investor's profile (user-level fields).
+
+        Only the provided fields are updated. Email is intentionally not
+        editable here — changing email requires a separate re-verification flow.
+
+        Raises:
+            ValueError: if the user is not found or username is taken.
+        """
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        # Username uniqueness check (only if changing)
+        if username is not None and username != user.username:
+            existing = await self.user_repo.get_by_username(username)
+            if existing and existing.id != user_id:
+                raise ValueError("Username already taken")
+            user.username = username
+
+        if full_name is not None:
+            user.full_name = full_name
+
+        if phone_number is not None:
+            # Treat empty string as a clear request
+            user.phone_number = phone_number or None
+
+        user.updated_at = datetime.utcnow()
+        return await self.user_repo.update(user)

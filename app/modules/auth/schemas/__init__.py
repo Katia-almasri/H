@@ -6,6 +6,7 @@ from app.modules.auth.schemas.requests import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     AdminRegisterRequest,
+    UpdateInvestorProfileRequest,
 )
 from app.modules.auth.schemas.responses import (
     UserResponse,
@@ -22,6 +23,7 @@ __all__ = [
     "ForgotPasswordRequest",
     "ResetPasswordRequest",
     "AdminRegisterRequest",
+    "UpdateInvestorProfileRequest",
     "UserResponse",
     "TokenResponse",
     "RegisterResponse",
