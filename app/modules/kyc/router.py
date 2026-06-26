@@ -1,4 +1,4 @@
-"""KYC router — investor submission + admin review."""
+"""KYC router — investor submission + admin review + reference data lookups."""
 
 from typing import Annotated
 
@@ -9,6 +9,12 @@ from starlette.status import HTTP_201_CREATED
 from app.database import get_db
 from app.modules.auth.enums import UserRole
 from app.modules.kyc.services import KYCService
+from app.modules.kyc.services.lookups import (
+    get_document_types,
+    get_allowed_residence_countries,
+    get_source_of_funds,
+    get_allowed_nationalities,
+)
 from app.modules.kyc.schemas import (
     KYCSubmitRequest,
     KYCReviewRequest,
@@ -33,6 +39,47 @@ require_admin = RoleChecker(allowed_roles=[UserRole.ADMIN])
 
 def get_kyc_service(db: Annotated[AsyncSession, Depends(get_db)]) -> KYCService:
     return KYCService(db)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# REFERENCE DATA (public — no auth required)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/lookups/document-types", summary="List KYC document types")
+async def list_document_types():
+    """Return all supported KYC document types (value + human-readable label)."""
+    return api_response(
+        message="Document types retrieved.",
+        data=get_document_types(),
+    )
+
+
+@router.get("/lookups/residence-countries", summary="List allowed residence countries")
+async def list_residence_countries():
+    """Return all countries where investors are allowed to reside (ISO code + name)."""
+    return api_response(
+        message="Allowed residence countries retrieved.",
+        data=get_allowed_residence_countries(),
+    )
+
+
+@router.get("/lookups/source-of-funds", summary="List source-of-funds options")
+async def list_source_of_funds():
+    """Return all accepted source-of-funds options (value + human-readable label)."""
+    return api_response(
+        message="Source of funds options retrieved.",
+        data=get_source_of_funds(),
+    )
+
+
+@router.get("/lookups/nationalities", summary="List allowed nationalities")
+async def list_nationalities():
+    """Return all nationalities not subject to sanctions or regulatory restrictions."""
+    return api_response(
+        message="Allowed nationalities retrieved.",
+        data=get_allowed_nationalities(),
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
