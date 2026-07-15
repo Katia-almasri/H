@@ -4,6 +4,9 @@ from app.modules.kyc.enums.document_type import DocumentType
 from app.modules.kyc.enums.restricted_nationality import RestrictedNationality
 from app.modules.kyc.enums.allowed_residence_country import AllowedResidenceCountry
 from app.modules.kyc.enums.source_of_funds import SourceOfFunds
+from app.modules.kyc.enums.kyc_status import KYCStatus
+from app.modules.kyc.enums.kyc_tier import KYCTier
+from packages.core.i18n import t
 
 # ── ISO 3166-1 alpha-2 full country list ──────────────────────────────────────
 # Static map: code → country name. Used to derive allowed nationalities.
@@ -211,19 +214,30 @@ _RESTRICTED_CODES: frozenset[str] = frozenset(r.value for r in RestrictedNationa
 
 # ── Lookup functions ──────────────────────────────────────────────────────────
 
+def _humanize_enum_value(value: str) -> str:
+    return value.replace("_", " ").title()
+
+
+def _enum_lookup(enum_class, translation_prefix: str) -> list[dict[str, str]]:
+    return [
+        {
+            "value": item.value,
+            "label": t(
+                f"{translation_prefix}.{item.value}",
+                default=_humanize_enum_value(item.value),
+            ),
+        }
+        for item in enum_class
+    ]
+
+
 def get_document_types() -> list[dict[str, str]]:
     """Return all supported KYC document types.
 
     Returns a list of ``{"value": <enum value>, "label": <human-readable label>}``
     dicts suitable for driving a dropdown in the client.
     """
-    label_map: dict[str, str] = {
-        DocumentType.GOVERNMENT_ID_FRONT: "Government ID (Front)",
-        DocumentType.GOVERNMENT_ID_BACK: "Government ID (Back)",
-        DocumentType.PROOF_OF_ADDRESS: "Proof of Address",
-        DocumentType.SELFIE: "Selfie / Liveness Photo",
-    }
-    return [{"value": dt.value, "label": label_map[dt]} for dt in DocumentType]
+    return _enum_lookup(DocumentType, "kyc.document_type")
 
 
 def get_allowed_residence_countries() -> list[dict[str, str]]:
@@ -234,7 +248,13 @@ def get_allowed_residence_countries() -> list[dict[str, str]]:
     the full ``COUNTRY_MAP``.
     """
     return [
-        {"code": country.value, "name": COUNTRY_MAP.get(country.value, country.value)}
+        {
+            "code": country.value,
+            "name": t(
+                f"country.{country.value}",
+                default=COUNTRY_MAP.get(country.value, country.value),
+            ),
+        }
         for country in AllowedResidenceCountry
     ]
 
@@ -245,18 +265,7 @@ def get_source_of_funds() -> list[dict[str, str]]:
     Returns a list of ``{"value": <enum value>, "label": <human-readable label>}``
     dicts suitable for driving a dropdown in the client.
     """
-    label_map: dict[str, str] = {
-        SourceOfFunds.EMPLOYMENT_INCOME: "Employment Income",
-        SourceOfFunds.BUSINESS_INCOME: "Business Income",
-        SourceOfFunds.INVESTMENTS: "Investments",
-        SourceOfFunds.INHERITANCE: "Inheritance",
-        SourceOfFunds.SAVINGS: "Savings",
-        SourceOfFunds.PROPERTY_SALE: "Property Sale",
-        SourceOfFunds.GIFT: "Gift",
-        SourceOfFunds.PENSION: "Pension",
-        SourceOfFunds.OTHER: "Other",
-    }
-    return [{"value": sof.value, "label": label_map[sof]} for sof in SourceOfFunds]
+    return _enum_lookup(SourceOfFunds, "kyc.source_of_funds")
 
 
 def get_allowed_nationalities() -> list[dict[str, str]]:
@@ -266,7 +275,17 @@ def get_allowed_nationalities() -> list[dict[str, str]]:
     in ``RestrictedNationality``.  Returns ``{"code": ..., "name": ...}`` dicts.
     """
     return [
-        {"code": code, "name": name}
+        {"code": code, "name": t(f"country.{code}", default=name)}
         for code, name in COUNTRY_MAP.items()
         if code not in _RESTRICTED_CODES
     ]
+
+
+def get_kyc_status() -> list[dict[str, str]]:
+    """Return all available KYC submission statuses."""
+    return _enum_lookup(KYCStatus, "kyc.status")
+
+
+def get_kyc_tiers() -> list[dict[str, str]]:
+    """Return all available KYC verification tiers."""
+    return _enum_lookup(KYCTier, "kyc.tier")

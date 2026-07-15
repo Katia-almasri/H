@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException
 
 from app.redis_client import init_redis, close_redis
-from app.middleware import TimeoutMiddleware
+from app.middleware import LanguageMiddleware, TimeoutMiddleware
 from packages.core.exceptions import (
     AppException,
     app_exception_handler,
@@ -66,10 +66,13 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 # ── Middleware (order matters: first added = outermost) ───────────────────────
+from app.config import settings  # noqa: E402
+
 app.add_middleware(TimeoutMiddleware, timeout_seconds=30.0)
+app.add_middleware(LanguageMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

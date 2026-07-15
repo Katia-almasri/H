@@ -15,6 +15,7 @@ storage/
 
 # IDE
 .vscode/
+.codex/
 .idea/
 *.swp
 *.swo

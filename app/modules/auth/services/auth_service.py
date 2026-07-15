@@ -18,6 +18,7 @@ from app.modules.auth.services.lockout_service import LockoutService
 from app.modules.auth.services.rate_limit_service import RateLimitService
 from app.modules.auth.services.device_service import DeviceService
 from app.modules.auth.services.notification_service import NotificationService
+from packages.core.exceptions import EmailNotVerifiedException
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,10 @@ class AuthService:
             raise PermissionError("Account is inactive")
 
         if user.account_status == AccountStatus.NEEDS_EMAIL_VERIFICATION.value:
-            raise PermissionError("Email not verified. Please verify your email before logging in.")
+            raise EmailNotVerifiedException(
+                message="Email not verified. Please verify your email before logging in.",
+                user_id=user.id
+            )
 
         if user.account_status == AccountStatus.SUSPENDED.value:
             raise PermissionError("Account is suspended")

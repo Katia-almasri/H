@@ -3,11 +3,16 @@
 import os
 import uuid
 from datetime import datetime, date
+from pathlib import Path
 from typing import Optional
 
 from fastapi import UploadFile
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.models.user import User
+from app.modules.auth.repositories.user_repository import UserRepository
+from app.modules.auth.services.notification_service import NotificationService
 from app.modules.kyc.enums import (
     KYCStatus,
     KYCTier,
@@ -29,6 +34,7 @@ from app.modules.kyc.services.constraints_engine import (
     validate_residential_address,
     check_nationality,
 )
+from packages.core.currency import Currency, get_investment_limit
 
 # File validation constants
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -39,11 +45,13 @@ UPLOAD_DIR = "storage/kyc"
 class KYCService:
     """Investor KYC submission and review service."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis_client: Optional[Redis] = None):
         self.db = db
         self.submission_repo = KYCSubmissionRepository(db)
         self.document_repo = KYCDocumentRepository(db)
         self.status_log_repo = KYCStatusLogRepository(db)
+        self.user_repo = UserRepository(db)
+        self.notification_service = NotificationService(redis_client)
 
     # ── Submission ────────────────────────────────────────────────────────────
 
@@ -211,6 +219,17 @@ class KYCService:
             notes=notes,
         )
 
+        investor = await self.user_repo.get_by_id(submission.user_id)
+        if not investor:
+            raise ValueError("Investor not found")
+
+        await self.notification_service.send_kyc_tier_granted_email(
+            user_email=investor.email,
+            investor_name=investor.full_name or investor.username,
+            tier=tier,
+            investment_limit=self._format_investment_limit(tier),
+        )
+
         return submission
 
     async def reject_kyc(
@@ -241,6 +260,17 @@ class KYCService:
             notes=notes,
         )
 
+        investor = await self.user_repo.get_by_id(submission.user_id)
+        if not investor:
+            raise ValueError("Investor not found")
+
+        await self.notification_service.send_kyc_rejection_email(
+            user_email=investor.email,
+            investor_name=investor.full_name or investor.username,
+            rejection_reason=notes or "Your submitted KYC information requires correction.",
+            documents_to_resubmit=self._default_kyc_documents_to_resubmit(),
+        )
+
         return submission
 
     async def set_under_review(
@@ -267,6 +297,125 @@ class KYCService:
         return submission
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    async def get_kyc_submissions_for_admin(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+        nationality: Optional[str] = None,
+        tier: Optional[str] = None,
+        status: Optional[str] = None,
+        submitted_from: Optional[datetime] = None,
+        submitted_to: Optional[datetime] = None,
+        order_by: str = "submitted_at",
+        order_direction: str = "desc",
+    ) -> tuple[list[tuple[KYCSubmission, object]], int]:
+        """Get paginated KYC submissions for admin review."""
+        allowed_order_fields = {
+            "submitted_at",
+            "created_at",
+            "status",
+            "tier",
+            "nationality",
+            "investor_name",
+        }
+        if order_by not in allowed_order_fields:
+            raise ValueError(f"Invalid order_by: {order_by}")
+
+        if order_direction not in {"asc", "desc"}:
+            raise ValueError("order_direction must be 'asc' or 'desc'")
+
+        if tier and tier not in [t.value for t in KYCTier]:
+            raise ValueError(f"Invalid tier: {tier}")
+
+        if status and status not in [s.value for s in KYCStatus]:
+            raise ValueError(f"Invalid status: {status}")
+
+        if submitted_from and submitted_to and submitted_from > submitted_to:
+            raise ValueError("submitted_from must be before submitted_to")
+
+        return await self.submission_repo.list_for_admin(
+            page=page,
+            page_size=page_size,
+            search=search,
+            nationality=nationality,
+            tier=tier,
+            status=status,
+            submitted_from=submitted_from,
+            submitted_to=submitted_to,
+            order_by=order_by,
+            order_direction=order_direction,
+        )
+
+    async def get_kyc_submission_detail_for_admin(
+        self,
+        submission_id: str,
+    ) -> tuple[KYCSubmission, User, list[KYCDocument]]:
+        """Get one KYC submission with investor profile and uploaded documents."""
+        submission = await self.submission_repo.get_by_id(submission_id)
+        if not submission:
+            raise ValueError("Submission not found")
+
+        investor = await self.user_repo.get_by_id(submission.user_id)
+        if not investor:
+            raise ValueError("Investor not found")
+
+        documents = await self.document_repo.get_by_submission(submission.id)
+        return submission, investor, documents
+
+    async def get_document_file_for_admin(
+        self,
+        document_id: str,
+    ) -> tuple[KYCDocument, Path]:
+        """Get one uploaded KYC document file for admin viewing."""
+        document = await self.document_repo.get_by_id(document_id)
+        if not document:
+            raise ValueError("Document not found")
+
+        return document, self._resolve_document_path(document)
+
+    async def get_document_file_by_name_for_admin(
+        self,
+        file_name: str,
+    ) -> tuple[KYCDocument, Path]:
+        """Get one uploaded KYC document file by file name for admin viewing."""
+        if Path(file_name).name != file_name:
+            raise ValueError("Document file name is invalid")
+
+        document = await self.document_repo.get_by_file_name(file_name)
+        if not document:
+            raise ValueError("Document not found")
+
+        return document, self._resolve_document_path(document)
+
+    def _resolve_document_path(self, document: KYCDocument) -> Path:
+        """Resolve a document file path while keeping access under storage/kyc."""
+        base_dir = Path(UPLOAD_DIR).resolve()
+        file_path = Path(document.file_path).resolve()
+        if file_path != base_dir and base_dir not in file_path.parents:
+            raise ValueError("Document file path is invalid")
+
+        if not file_path.is_file():
+            raise ValueError("Document file not found")
+
+        return file_path
+
+    def _format_investment_limit(self, tier: str) -> str:
+        """Format the per-property investment limit for notification copy."""
+        limit = get_investment_limit(tier, Currency.AED)
+        if limit is None:
+            return "Unlimited per property"
+        return f"AED {limit:,.0f} per property"
+
+    def _default_kyc_documents_to_resubmit(self) -> list[str]:
+        """Return standard KYC document categories for rejection notification copy."""
+        return [
+            "Government ID front and back, if requested",
+            "Proof of address, if requested",
+            "Selfie or liveness photo, if requested",
+        ]
 
     async def _log_status_change(
         self,

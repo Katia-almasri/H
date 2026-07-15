@@ -6,6 +6,7 @@ from app.modules.kyc.enums.source_of_funds import SourceOfFunds
 from app.modules.kyc.enums.document_type import DocumentType
 from app.modules.kyc.enums.allowed_file_type import AllowedFileType
 from app.modules.kyc.enums.allowed_residence_country import AllowedResidenceCountry
+from app.modules.kyc.enums.metric_period import KYCMetricPeriod
 from app.modules.kyc.enums.restricted_nationality import RestrictedNationality
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "DocumentType",
     "AllowedFileType",
     "AllowedResidenceCountry",
+    "KYCMetricPeriod",
     "RestrictedNationality",
 ]

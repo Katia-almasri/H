@@ -8,6 +8,7 @@ from datetime import datetime
 import redis.asyncio as redis
 
 from app.modules.auth.enums import NotificationTemplate, OTPPurpose
+from app.config import settings
 
 
 class NotificationService:
@@ -180,6 +181,12 @@ class NotificationService:
         elif template == NotificationTemplate.AUTH_002_EMAIL_VERIFICATION:
             # Email verification
             self._log_email_verification(context)
+        elif template == NotificationTemplate.KYC_002_TIER_GRANTED:
+            # KYC approval and tier granted email
+            self._log_kyc_tier_granted(context)
+        elif template == NotificationTemplate.KYC_003_REJECTED:
+            # KYC rejection and resubmission email
+            self._log_kyc_rejected(context)
         
         print("="*80 + "\n")
 
@@ -205,12 +212,15 @@ class NotificationService:
 
     def _log_password_reset(self, context: Dict[str, any]) -> None:
         """Log password reset email to console."""
+        reset_token = context.get('reset_token', 'N/A')
+        reset_url = f"{settings.frontend_base_url}/reset-password?token={reset_token}"
+        
         print("Subject: 🔑 Password Reset Request")
         print("\nDear User,")
         print("\nWe received a request to reset your Harvest account password.")
-        print(f"\nReset Token: {context.get('reset_token', 'N/A')}")
+        print(f"\nReset Token: {reset_token}")
         print(f"Valid for: {context.get('valid_minutes', 30)} minutes")
-        print(f"\nReset Link: https://harvest.ae/reset-password?token={context.get('reset_token', 'N/A')}")
+        print(f"\nReset Link: {reset_url}")
         print("\nIf you didn't request this, please ignore this email.")
         print("Your password will remain unchanged.")
         print("\nBest regards,")
@@ -224,6 +234,48 @@ class NotificationService:
         print(f"\nYour verification code is: {context.get('otp', 'N/A')}")
         print(f"Valid for: {context.get('valid_minutes', 10)} minutes")
         print("\nPlease enter this code to verify your email address.")
+        print("\nBest regards,")
+        print("Harvest Team")
+
+    def _log_kyc_tier_granted(self, context: Dict[str, any]) -> None:
+        """Log KYC tier granted email to console."""
+        investor_name = context.get("investor_name") or "Investor"
+        tier = context.get("tier", "N/A")
+        investment_limit = context.get("investment_limit", "N/A")
+        start_investing_url = context.get(
+            "start_investing_url",
+            f"{settings.frontend_base_url}/invest",
+        )
+
+        print("Subject: KYC Approved - Your Investment Tier Is Active")
+        print(f"\nDear {investor_name},")
+        print("\nYour KYC submission has been approved.")
+        print(f"\nTier granted: {tier}")
+        print(f"Investment limit: {investment_limit}")
+        print(f"\nStart investing: {start_investing_url}")
+        print("\nYou can now browse eligible properties and begin your investment journey.")
+        print("\nBest regards,")
+        print("Harvest Team")
+
+    def _log_kyc_rejected(self, context: Dict[str, any]) -> None:
+        """Log KYC rejection email to console."""
+        investor_name = context.get("investor_name") or "Investor"
+        rejection_reason = context.get("rejection_reason") or "Please review the admin notes in your KYC dashboard."
+        documents_to_resubmit = context.get("documents_to_resubmit") or []
+        resubmission_url = context.get(
+            "resubmission_url",
+            f"{settings.frontend_base_url}/kyc/resubmit",
+        )
+
+        print("Subject: KYC Review Update - Action Required")
+        print(f"\nDear {investor_name},")
+        print("\nYour KYC submission could not be approved at this time.")
+        print(f"\nRejection reason: {rejection_reason}")
+        print("\nDocuments to re-submit:")
+        for document in documents_to_resubmit:
+            print(f"  - {document}")
+        print(f"\nResubmission link: {resubmission_url}")
+        print("\nPlease update your submission and upload the requested documents.")
         print("\nBest regards,")
         print("Harvest Team")
 
@@ -289,4 +341,58 @@ class NotificationService:
                 "otp": otp,
                 "valid_minutes": valid_minutes
             }
+        )
+
+    async def send_kyc_tier_granted_email(
+        self,
+        user_email: str,
+        tier: str,
+        investment_limit: str,
+        investor_name: Optional[str] = None,
+    ) -> None:
+        """
+        Send KYC approval email with granted tier and investment limit.
+
+        Args:
+            user_email: User's email address
+            tier: Granted KYC tier
+            investment_limit: Human-readable investment limit
+            investor_name: Optional investor display name
+        """
+        await self.send_email(
+            to_email=user_email,
+            template=NotificationTemplate.KYC_002_TIER_GRANTED,
+            context={
+                "investor_name": investor_name,
+                "tier": tier,
+                "investment_limit": investment_limit,
+                "start_investing_url": f"{settings.frontend_base_url}/invest",
+            },
+        )
+
+    async def send_kyc_rejection_email(
+        self,
+        user_email: str,
+        rejection_reason: str,
+        documents_to_resubmit: list[str],
+        investor_name: Optional[str] = None,
+    ) -> None:
+        """
+        Send KYC rejection email with reason, documents, and resubmission link.
+
+        Args:
+            user_email: User's email address
+            rejection_reason: Reason the KYC submission was rejected
+            documents_to_resubmit: Human-readable document names to re-submit
+            investor_name: Optional investor display name
+        """
+        await self.send_email(
+            to_email=user_email,
+            template=NotificationTemplate.KYC_003_REJECTED,
+            context={
+                "investor_name": investor_name,
+                "rejection_reason": rejection_reason,
+                "documents_to_resubmit": documents_to_resubmit,
+                "resubmission_url": f"{settings.frontend_base_url}/kyc/resubmit",
+            },
         )

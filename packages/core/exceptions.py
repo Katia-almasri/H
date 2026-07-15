@@ -68,6 +68,15 @@ class AccountLockedException(AppException):
         super().__init__(message=message, status_code=HTTP_423_LOCKED, details=details)
 
 
+class EmailNotVerifiedException(AppException):
+    def __init__(self, message: str = "Email not verified", user_id: str = None, details: Optional[Any] = None):
+        # Include user_id in details so frontend can use it for verification endpoint
+        exception_details = details or {}
+        if user_id:
+            exception_details["user_id"] = user_id
+        super().__init__(message=message, status_code=HTTP_403_FORBIDDEN, details=exception_details)
+
+
 class ServiceUnavailableException(AppException):
     def __init__(self, message: str = "Service unavailable", details: Optional[Any] = None):
         super().__init__(message=message, status_code=HTTP_503_SERVICE_UNAVAILABLE, details=details)
